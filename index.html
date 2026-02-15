@@ -1,6 +1,80 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
+    <script>
+(function () {
+  // Parâmetros que queremos salvar e repassar
+  var KEYS = [
+    "utm_source","utm_medium","utm_campaign","utm_term","utm_content",
+    "src","sck",
+    "fbclid","gclid","ttclid","wbraid","gbraid"
+  ];
+
+  function getParams() {
+    var p = new URLSearchParams(window.location.search);
+    var out = {};
+    KEYS.forEach(function(k){
+      var v = p.get(k);
+      if (v && String(v).trim()) out[k] = String(v).trim();
+    });
+    return out;
+  }
+
+  function loadSaved() {
+    try { return JSON.parse(localStorage.getItem("saved_utms") || "{}"); }
+    catch(e){ return {}; }
+  }
+
+  function save(obj) {
+    try { localStorage.setItem("saved_utms", JSON.stringify(obj)); } catch(e){}
+  }
+
+  function addUtmsToLinks() {
+    var saved = loadSaved();
+    if (!Object.keys(saved).length) return;
+
+    // Braip: ajuste/adicione matches conforme seu link real do checkout
+    // Cobertura comum: pay.braip.com, ev.braip.com e braip.com
+    var CHECKOUT_MATCH = ["pay.braip.com", "ev.braip.com", "braip.com"];
+
+    var links = document.querySelectorAll("a[href]");
+    links.forEach(function(a){
+      var href = a.getAttribute("href");
+      if (!href) return;
+
+      // só mexe em links que apontam pro checkout da Braip
+      var isCheckout = CHECKOUT_MATCH.some(function(m){ return href.indexOf(m) !== -1; });
+      if (!isCheckout) return;
+
+      try{
+        var url = new URL(href, window.location.origin);
+
+        // não sobrescreve se já existir no link
+        KEYS.forEach(function(k){
+          if (!url.searchParams.get(k) && saved[k]) url.searchParams.set(k, saved[k]);
+        });
+
+        a.setAttribute("href", url.toString());
+      } catch(e){}
+    });
+  }
+
+  // 1) captura UTMs da URL atual e salva
+  var current = getParams();
+  var saved = loadSaved();
+  var merged = Object.assign({}, saved, current);
+  save(merged);
+
+  // 2) quando a página carregar e quando o DOM mudar, repassa pro link do checkout
+  document.addEventListener("DOMContentLoaded", addUtmsToLinks);
+
+  // garante pra botões/links renderizados depois (Elementor, popups, etc.)
+  var mo = new MutationObserver(function(){ addUtmsToLinks(); });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+
+
 <!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
